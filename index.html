@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minhas Despesas</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        body {
+            margin: 0;
+            background-color: #f8f9fa;
+        }
+
+        .header {
+            background-color: #1976d2;
+            color: white;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        }
+
+        input, select, button {
+            width: 100%;
+            padding: 12px;
+            margin: 5px 0;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-size: 16px;
+        }
+
+        input:focus, select:focus {
+            border-color: #1976d2;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(25,118,210,0.2);
+        }
+
+        button {
+            background-color: #1976d2;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background-color: #1565c0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            overflow-x: auto;
+            display: block;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+            min-width: 120px;
+        }
+
+        th {
+            background-color: #f8f9fa;
+        }
+
+        .recurrent {
+            color: #1976d2;
+            font-weight: bold;
+        }
+
+        #listaMes {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .button-group button {
+            flex: 1;
+            background-color: #28a745;
+        }
+        
+        .button-group button:last-child {
+            background-color: #17a2b8;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                padding: 15px;
+            }
+            
+            .input-group {
+                grid-template-columns: 1fr;
+            }
+            
+            table {
+                display: table;
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            th, td {
+                font-size: 14px;
+                padding: 8px;
+            }
+            
+            button {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Minhas Despesas</h1>
+    </div>
+
+    <div class="container">
+        <div class="input-group">
+            <input type="text" id="descricao" placeholder="Ex: Aluguel apartamento">
+            <input type="text" id="valor" placeholder="R$ 0,00">
+            <input type="date" id="dataInicio" required>
+            <input type="number" id="parcelas" placeholder="Parcelas" min="1" value="1">
+            <label style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="recorrente"> Recorrente
+            </label>
+            <button onclick="adicionarDivida()">Adicionar Despesa</button>
+        </div>
+
+        <div>
+            <h3>Consultar Mês:</h3>
+            <select id="mesConsulta" onchange="mostrarDividasMes()">
+                <option value="">Selecione o mês</option>
+            </select>
+        </div>
+
+        <div id="listaMes"></div>
+        
+        <h3>Histórico de Despesas:</h3>
+        <table id="todasDividas">
+            <tr>
+                <th>Descrição</th>
+                <th>Valor Total</th>
+                <th>Data Início</th>
+                <th>Parcelas</th>
+                <th>Valor Parcela</th>
+                <th>Ações</th>
+            </tr>
+        </table>
+
+        <div class="button-group">
+            <button onclick="exportarDados()">Exportar Dados</button>
+            <button onclick="document.getElementById('fileInput').click()">Importar Dados</button>
+            <input type="file" id="fileInput" style="display:none" accept=".json" onchange="importarDados(event)">
+        </div>
+    </div>
+
+    <script>
+        let todasDividas = [];
+        let dividasPorMes = {};
+
+        // Configuração inicial da data
+        document.getElementById('dataInicio').valueAsDate = new Date();
+
+        document.getElementById('valor').addEventListener('input', function(e) {
+            let valor = e.target.value.replace(/\D/g, '');
+            valor = (Number(valor)/100).toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+            });
+            e.target.value = valor;
+        });
+
+        document.getElementById('recorrente').addEventListener('change', function(e) {
+            const parcelasInput = document.getElementById('parcelas');
+            parcelasInput.disabled = e.target.checked;
+            if (e.target.checked) parcelasInput.value = '';
+        });
+
+        function formatarMoeda(valor) {
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+        }
+
+        function adicionarDivida() {
+            const descricao = document.getElementById('descricao').value;
+            const valor = parseFloat(document.getElementById('valor').value.replace('R$', '').replace('.', '').replace(',', '.'));
+            const dataInicio = new Date(document.getElementById('dataInicio').value);
+            const recorrente = document.getElementById('recorrente').checked;
+            let parcelas = parseInt(document.getElementById('parcelas').value) || 1;
+
+            if (!descricao || isNaN(valor) || !dataInicio.getTime()) {
+                alert('Preencha todos os campos corretamente!');
+                return;
+            }
+
+            if (recorrente) {
+                parcelas = 120;
+            }
+
+            const valorParcela = valor / parcelas;
+            const idDivida = Date.now();
+
+            const divida = {
+                id: idDivida,
+                descricao,
+                valorTotal: valor,
+                dataInicio,
+                parcelas,
+                valorParcela,
+                recorrente
+            };
+
+            todasDividas.push(divida);
+            atualizarTabelaDividas();
+
+            for (let i = 0; i < parcelas; i++) {
+                const dataParcela = new Date(dataInicio);
+                dataParcela.setMonth(dataInicio.getMonth() + i);
+                
+                const mesAno = `${dataParcela.getMonth() + 1}/${dataParcela.getFullYear()}`;
+                
+                if (!dividasPorMes[mesAno]) {
+                    dividasPorMes[mesAno] = [];
+                }
+                
+                dividasPorMes[mesAno].push({
+                    descricao,
+                    valorParcela,
+                    parcela: i + 1,
+                    idDivida,
+                    recorrente
+                });
+            }
+            
+            atualizarSelectMeses();
+            salvarNoLocalStorage();
+            document.getElementById('descricao').value = '';
+            document.getElementById('valor').value = '';
+            document.getElementById('dataInicio').valueAsDate = new Date();
+            document.getElementById('recorrente').checked = false;
+            document.getElementById('parcelas').value = '1';
+            document.getElementById('parcelas').disabled = false;
+        }
+
+        function removerDivida(id) {
+            todasDividas = todasDividas.filter(d => d.id !== id);
+            
+            for (const mes in dividasPorMes) {
+                dividasPorMes[mes] = dividasPorMes[mes].filter(p => p.idDivida !== id);
+            }
+            
+            atualizarTabelaDividas();
+            atualizarSelectMeses();
+            mostrarDividasMes();
+            salvarNoLocalStorage();
+        }
+
+        function atualizarSelectMeses() {
+            const select = document.getElementById('mesConsulta');
+            select.innerHTML = '<option value="">Selecione o mês</option>';
+            
+            Object.keys(dividasPorMes)
+                .sort((a, b) => {
+                    const [mesA, anoA] = a.split('/');
+                    const [mesB, anoB] = b.split('/');
+                    return new Date(anoA, mesA-1) - new Date(anoB, mesB-1);
+                })
+                .forEach(mesAno => {
+                    const option = document.createElement('option');
+                    option.value = mesAno;
+                    option.textContent = mesAno;
+                    select.appendChild(option);
+                });
+        }
+
+        function mostrarDividasMes() {
+            const mesSelecionado = document.getElementById('mesConsulta').value;
+            const listaMes = document.getElementById('listaMes');
+            listaMes.innerHTML = '';
+            
+            if (!mesSelecionado) return;
+
+            const dividas = dividasPorMes[mesSelecionado];
+            let html = `<h3>Despesas para ${mesSelecionado}:</h3><ul style="list-style:none; padding:0;">`;
+            
+            dividas.forEach(divida => {
+                const tipo = divida.recorrente ? '<span class="recurrent">(Recorrente)</span>' : `(Parcela ${divida.parcela})`;
+                html += `
+                    <li style="padding:10px; background:#fff; margin-bottom:5px; border-radius:6px; box-shadow:0 1px 3px rgba(0,0,0,0.1)">
+                        ${divida.descricao} - ${formatarMoeda(divida.valorParcela)} 
+                        ${tipo}
+                    </li>`;
+            });
+            
+            html += '</ul>';
+            listaMes.innerHTML = html;
+        }
+
+        function atualizarTabelaDividas() {
+            const tabela = document.getElementById('todasDividas');
+            while (tabela.rows.length > 1) tabela.deleteRow(1);
+            
+            todasDividas.forEach(divida => {
+                const row = tabela.insertRow();
+                row.insertCell().textContent = divida.descricao;
+                row.insertCell().textContent = formatarMoeda(divida.valorTotal);
+                row.insertCell().textContent = new Date(divida.dataInicio).toLocaleDateString('pt-BR');
+                row.insertCell().textContent = divida.recorrente ? 'Recorrente' : divida.parcelas;
+                row.insertCell().textContent = formatarMoeda(divida.valorParcela);
+                row.insertCell().innerHTML = `<button style="padding:6px 12px; background:#dc3545; color:white; border:none; border-radius:4px; cursor:pointer" onclick="removerDivida(${divida.id})">Excluir</button>`;
+            });
+        }
+
+        // Armazenamento Local
+        function salvarNoLocalStorage() {
+            const dados = {
+                todasDividas,
+                dividasPorMes
+            };
+            localStorage.setItem('minhasDespesas', JSON.stringify(dados));
+        }
+
+        function carregarDoLocalStorage() {
+            const dadosSalvos = localStorage.getItem('minhasDespesas');
+            if (dadosSalvos) {
+                const dados = JSON.parse(dadosSalvos);
+                todasDividas = dados.todasDividas || [];
+                dividasPorMes = dados.dividasPorMes || {};
+                atualizarTabelaDividas();
+                atualizarSelectMeses();
+            }
+        }
+
+        // Exportar/Importar
+        function exportarDados() {
+            const dados = {
+                todasDividas,
+                dividasPorMes,
+                exportadoEm: new Date().toISOString()
+            };
+            
+            const blob = new Blob([JSON.stringify(dados)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `minhas-despesas-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            
+            URL.revokeObjectURL(url);
+        }
+
+        function importarDados(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const dados = JSON.parse(e.target.result);
+                    todasDividas = dados.todasDividas || [];
+                    dividasPorMes = dados.dividasPorMes || {};
+                    
+                    atualizarTabelaDividas();
+                    atualizarSelectMeses();
+                    salvarNoLocalStorage();
+                    
+                    alert('Dados importados com sucesso!');
+                } catch (error) {
+                    alert('Erro ao importar dados. Verifique o arquivo.');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Auto-save
+        function autoSave() {
+            salvarNoLocalStorage();
+        }
+
+        // Configuração inicial
+        document.addEventListener('DOMContentLoaded', function() {
+            carregarDoLocalStorage();
+            
+            // Configurar auto-save
+            const elementos = document.querySelectorAll('input, select, button');
+            elementos.forEach(elemento => {
+                elemento.addEventListener('change', autoSave);
+                elemento.addEventListener('click', autoSave);
+            });
+        });
+    </script>
+</body>
+</html>
