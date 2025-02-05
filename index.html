@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <title>Minhas Despesas</title>
     <style>
         * {
@@ -186,7 +187,11 @@
         <div id="listaMes"></div>
 <div id="totalMes" style="margin-top: 10px; font-weight: bold;"></div>
 <div id="totalGeral" style="margin-top: 10px; font-weight: bold;"></div>
-    </div>
+<div class="container">
+    <h3>Gráfico de Despesas por Mês</h3>
+    <canvas id="graficoDespesas"></canvas>
+</div>    
+</div>
 
     <script>
         let todasDividas = [];
@@ -273,6 +278,7 @@
             document.getElementById('recorrente').checked = false;
             document.getElementById('parcelas').value = '1';
             document.getElementById('parcelas').disabled = false;
+            gerarGraficoDespesas();
         }
 
         function removerDivida(id) {
@@ -286,6 +292,7 @@
             atualizarSelectMeses();
             mostrarDividasMes();
             salvarNoLocalStorage();
+            gerarGraficoDespesas();
         }
 
         function atualizarSelectMeses() {
@@ -448,6 +455,55 @@ function atualizarTotalGeral() {
     
     totalGeralDiv.innerHTML = `Total Geral: ${formatarMoeda(totalGeral)}`;
 }
+function gerarGraficoDespesas() {
+    const meses = Object.keys(dividasPorMes).sort((a, b) => {
+        const [mesA, anoA] = a.split('/');
+        const [mesB, anoB] = b.split('/');
+        return new Date(anoA, mesA - 1) - new Date(anoB, mesB - 1);
+    });
+
+    const totaisMensais = meses.map(mes => {
+        return dividasPorMes[mes].reduce((total, divida) => total + divida.valorParcela, 0);
+    });
+
+    const ctx = document.getElementById('graficoDespesas').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar', // Tipo de gráfico (barras)
+        data: {
+            labels: meses, // Eixo X: meses
+            datasets: [{
+                label: 'Despesas por Mês (R$)',
+                data: totaisMensais, // Eixo Y: valores
+                backgroundColor: 'rgba(25, 118, 210, 0.5)', // Cor das barras
+                borderColor: 'rgba(25, 118, 210, 1)', // Cor da borda
+                borderWidth: 1
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Valor (R$)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Mês/Ano'
+                    }
+                }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Despesas Mensais'
+                }
+            }
+        }
+    });
+}
 
         // Auto-save
         function autoSave() {
@@ -458,7 +514,7 @@ function atualizarTotalGeral() {
         // Configuração inicial
         document.addEventListener('DOMContentLoaded', function() {
             carregarDoLocalStorage();
-            
+            gerarGraficoDespesas();
             // Configurar auto-save
             const elementos = document.querySelectorAll('input, select, button');
             elementos.forEach(elemento => {
