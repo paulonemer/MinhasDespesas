@@ -183,6 +183,9 @@
             <button onclick="document.getElementById('fileInput').click()">Importar Dados</button>
             <input type="file" id="fileInput" style="display:none" accept=".json" onchange="importarDados(event)">
         </div>
+        <div id="listaMes"></div>
+<div id="totalMes" style="margin-top: 10px; font-weight: bold;"></div>
+<div id="totalGeral" style="margin-top: 10px; font-weight: bold;"></div>
     </div>
 
     <script>
@@ -402,11 +405,55 @@
             };
             reader.readAsText(file);
         }
+        function mostrarDividasMes() {
+    const mesSelecionado = document.getElementById('mesConsulta').value;
+    const listaMes = document.getElementById('listaMes');
+    const totalMesDiv = document.getElementById('totalMes');
+    listaMes.innerHTML = '';
+    totalMesDiv.innerHTML = '';
+    
+    if (!mesSelecionado) return;
+
+    const dividas = dividasPorMes[mesSelecionado];
+    let html = `<h3>Despesas para ${mesSelecionado}:</h3><ul style="list-style:none; padding:0;">`;
+    let totalMes = 0;
+    
+    dividas.forEach(divida => {
+        const tipo = divida.recorrente ? '<span class="recurrent">(Recorrente)</span>' : `(Parcela ${divida.parcela})`;
+        html += `
+            <li style="padding:10px; background:#fff; margin-bottom:5px; border-radius:6px; box-shadow:0 1px 3px rgba(0,0,0,0.1)">
+                ${divida.descricao} - ${formatarMoeda(divida.valorParcela)} 
+                ${tipo}
+            </li>`;
+        totalMes += divida.valorParcela;
+    });
+    
+    html += '</ul>';
+    listaMes.innerHTML = html;
+    totalMesDiv.innerHTML = `Total do Mês: ${formatarMoeda(totalMes)}`;
+    
+    // Atualizar o total geral
+    atualizarTotalGeral();
+}
+
+function atualizarTotalGeral() {
+    const totalGeralDiv = document.getElementById('totalGeral');
+    let totalGeral = 0;
+    
+    for (const mes in dividasPorMes) {
+        dividasPorMes[mes].forEach(divida => {
+            totalGeral += divida.valorParcela;
+        });
+    }
+    
+    totalGeralDiv.innerHTML = `Total Geral: ${formatarMoeda(totalGeral)}`;
+}
 
         // Auto-save
         function autoSave() {
             salvarNoLocalStorage();
         }
+        
 
         // Configuração inicial
         document.addEventListener('DOMContentLoaded', function() {
