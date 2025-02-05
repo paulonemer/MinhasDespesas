@@ -220,66 +220,68 @@
         }
 
         function adicionarDivida() {
-            const descricao = document.getElementById('descricao').value;
-            const valor = parseFloat(document.getElementById('valor').value.replace('R$', '').replace('.', '').replace(',', '.'));
-            const dataInicio = new Date(document.getElementById('dataInicio').value);
-            const recorrente = document.getElementById('recorrente').checked;
-            let parcelas = parseInt(document.getElementById('parcelas').value) || 1;
+    const descricao = document.getElementById('descricao').value;
+    const valor = parseFloat(document.getElementById('valor').value.replace('R$', '').replace('.', '').replace(',', '.'));
+    const dataInicio = new Date(document.getElementById('dataInicio').value);
+    const recorrente = document.getElementById('recorrente').checked;
+    let parcelas = parseInt(document.getElementById('parcelas').value) || 1;
 
-            if (!descricao || isNaN(valor) || !dataInicio.getTime()) {
-                alert('Preencha todos os campos corretamente!');
-                return;
-            }
+    if (!descricao || isNaN(valor) || !dataInicio.getTime()) {
+        alert('Preencha todos os campos corretamente!');
+        return;
+    }
 
-            if (recorrente) {
-                parcelas = 120;
-            }
+    if (recorrente) {
+        parcelas = 120; // Recorrente = 120 parcelas (10 anos)
+    }
 
-            const valorParcela = valor / parcelas;
-            const idDivida = Date.now();
+    // Valor de cada parcela é igual ao valor total (não divide mais)
+    const valorParcela = valor; // Alteração aqui
+    const valorTotal = valor * parcelas; // Alteração aqui
 
-            const divida = {
-                id: idDivida,
-                descricao,
-                valorTotal: valor,
-                dataInicio,
-                parcelas,
-                valorParcela,
-                recorrente
-            };
+    const idDivida = Date.now();
 
-            todasDividas.push(divida);
-            atualizarTabelaDividas();
+    const divida = {
+        id: idDivida,
+        descricao,
+        valorTotal, // Alteração aqui
+        dataInicio,
+        parcelas,
+        valorParcela, // Alteração aqui
+        recorrente
+    };
 
-            for (let i = 0; i < parcelas; i++) {
-                const dataParcela = new Date(dataInicio);
-                dataParcela.setMonth(dataInicio.getMonth() + i);
-                
-                const mesAno = `${dataParcela.getMonth() + 1}/${dataParcela.getFullYear()}`;
-                
-                if (!dividasPorMes[mesAno]) {
-                    dividasPorMes[mesAno] = [];
-                }
-                
-                dividasPorMes[mesAno].push({
-                    descricao,
-                    valorParcela,
-                    parcela: i + 1,
-                    idDivida,
-                    recorrente
-                });
-            }
-            
-            atualizarSelectMeses();
-            salvarNoLocalStorage();
-            document.getElementById('descricao').value = '';
-            document.getElementById('valor').value = '';
-            document.getElementById('dataInicio').valueAsDate = new Date();
-            document.getElementById('recorrente').checked = false;
-            document.getElementById('parcelas').value = '1';
-            document.getElementById('parcelas').disabled = false;
-            gerarGraficoDespesas();
+    todasDividas.push(divida);
+    atualizarTabelaDividas();
+
+    for (let i = 0; i < parcelas; i++) {
+        const dataParcela = new Date(dataInicio);
+        dataParcela.setMonth(dataInicio.getMonth() + i);
+        
+        const mesAno = `${dataParcela.getMonth() + 1}/${dataParcela.getFullYear()}`;
+        
+        if (!dividasPorMes[mesAno]) {
+            dividasPorMes[mesAno] = [];
         }
+        
+        dividasPorMes[mesAno].push({
+            descricao,
+            valorParcela, // Alteração aqui
+            parcela: i + 1,
+            idDivida,
+            recorrente
+        });
+    }
+    
+    atualizarSelectMeses();
+    salvarNoLocalStorage();
+    document.getElementById('descricao').value = '';
+    document.getElementById('valor').value = '';
+    document.getElementById('dataInicio').valueAsDate = new Date();
+    document.getElementById('recorrente').checked = false;
+    document.getElementById('parcelas').value = '1';
+    document.getElementById('parcelas').disabled = false;
+}
 
         function removerDivida(id) {
             todasDividas = todasDividas.filter(d => d.id !== id);
